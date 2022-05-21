@@ -20,12 +20,13 @@ impl CreekEvent for ActorEvent {}
 
 impl ActorTypes for Actors {
     fn propogate_global_event(&self, event:&GlobalEvent) -> Option<&Vec<CreekAction>> {
-        println!("{:?}\n", self);
         match self {
             Actors::Player(p) => {
+                println!("{}", p.str());
                 return Some(p.get_creek_actions());
             },
             Actors::Monster(m) => {
+                println!("{}", m.str());
                 return Some(m.get_creek_actions());
             }
             _ => {
@@ -55,6 +56,11 @@ impl Actor for Player {
         &self.creek_actions
     }
 }
+impl Player {
+    pub fn str(&self) -> String {
+        format!("Player: \"{}\"", self.name)
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct Monster {
@@ -80,7 +86,6 @@ impl Actor for Monster {
                     println!("Monster died!");
                     let c_action = self.creek_action(CreekActionType::Destroy);
                     if let Ok(action) = c_action {
-                        println!("MEOW");
                         self.creek_actions.push(action);
                     }
                     else if let Err(e) = c_action {
@@ -94,6 +99,12 @@ impl Actor for Monster {
 
     fn get_creek_actions(&self) -> &Vec<CreekAction> {
         &self.creek_actions
+    }
+}
+
+impl Monster {
+    pub fn str(&self) -> String {
+        format!("Monster has {} health", self.health)
     }
 }
 
@@ -132,7 +143,7 @@ fn main() {
         delta_time = Instant::now();
         std::io::stdin().read_line(&mut line);
         println!("{}", line);
-        if line.to_lowercase() == String::from("d\n") {
+        if line.to_lowercase().starts_with("d") {
             m_handle.edit_actor(|actor| {
                 if let Actors::Monster(monster) = actor {
                     monster.receive_event(ActorEvent::Damage(80));

@@ -2,7 +2,7 @@
 
 pub mod actors;
 use crate::actors::*;
-use std::{rc::Rc, collections::VecDeque, cell::RefCell, mem};
+
 
 impl CreekEvent for GlobalEvent {}
 
@@ -70,9 +70,9 @@ impl<T: ActorTypes + Clone> Creek<T> {
 
     pub fn add_actor(&mut self, actor_type:T) -> ActorHandle<T> {
         // Find empty spot
-        let mut actor_handle = ActorHandle::new(Rc::new(RefCell::new(actor_type)));
+        let mut actor_handle = ActorHandle::new(actor_type);
         for (index, handle) in self.actors.iter().enumerate() {
-            if let None = handle.inner {
+            if let None = *handle.inner.borrow() {
                 actor_handle.id.index = index;
                 actor_handle.id.gen = handle.id.gen + 1;
             }
@@ -86,7 +86,7 @@ impl<T: ActorTypes + Clone> Creek<T> {
             self.actors.push(actor_handle.clone());
         }
         self.push_event(GlobalEventType::ActorAdded(actor_handle.id), None);
-        ActorHandle { id: actor_handle.id, inner: Some(actor_handle.inner.unwrap().clone()) }
+        ActorHandle { id: actor_handle.id, inner: actor_handle.inner.clone() }
     }
 
     pub fn get_actor(&self, id:ActorID) -> Result<&ActorHandle<T>, CreekError> {
@@ -109,6 +109,14 @@ impl<T: ActorTypes + Clone> Creek<T> {
         }
     }
 
+    pub fn destroy_actor(&mut self, id:ActorID) -> Result<(), CreekError> {
+        let valid = self.validate_actor_id(id);
+        if valid.is_ok() {
+            self.actors[id.index].inner.borrow_mut().take();
+        }
+        valid
+    }
+
     pub fn validate_actor_id(&self, id:ActorID) -> Result<(), CreekError> {
         if id.index < self.actors.len() {
             if self.actors[id.index].id.gen == id.gen {
@@ -122,14 +130,14 @@ impl<T: ActorTypes + Clone> Creek<T> {
     pub fn propagate_events(&mut self) {
         let mut actions_pending = Vec::<CreekAction>::new();
         for handle in &self.actors {
-            if let Some(actor) = &handle.inner {
+            if let Some(actor) = &*handle.inner.borrow() {
                 for event in &self.events {
                     if let Some(id) = event.target {
                         if handle.id != id {
                             continue;
                         }
                     }
-                    if let Some(actions) = actor.borrow().propogate_global_event(event) {
+                    if let Some(actions) = actor.propogate_global_event(event) {
                         actions_pending.append(&mut actions.clone());
                     }
                 }
@@ -137,15 +145,12 @@ impl<T: ActorTypes + Clone> Creek<T> {
         }
         println!("{:?}", actions_pending);
         for action in actions_pending {
-            let mut actor_handle = self.get_actor_mut(action.target);
+            let actor_handle = self.get_actor_mut(action.target);
             if let Ok(handle) = actor_handle {
                 match action.action_type {
                     CreekActionType::Destroy => {
                         println!("REMOVE");
-                        if let Some(rc) = &handle.inner {
-                            mem::drop(rc);
-                        }
-                        handle.inner = None;
+                        handle.inner.borrow_mut().take();
                     }
                 }
             }
