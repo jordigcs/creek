@@ -18,13 +18,15 @@ pub enum GlobalEventType {
     Init,
     Update(f32),
     ActorAdded(ActorID),
-    ActorRemoved(ActorID)
+    ActorRemoved(ActorID),
+    AddedToCreek,
+    RemovedFromCreek,
 }
 
 #[derive(Debug, Clone)]
 pub struct GlobalEvent {
-    event_type: GlobalEventType,
-    target: Option<ActorID>,
+    pub event_type: GlobalEventType,
+    pub target: Option<ActorID>,
 }
 
 impl GlobalEvent {
@@ -48,6 +50,7 @@ pub struct CreekAction {
     target: ActorID,
 }
 
+#[derive(Clone)]
 pub struct Creek<T: ActorTypes + Clone> {
     actors:Vec<ActorHandle<T>>,
     events:Vec<GlobalEvent>
@@ -86,6 +89,7 @@ impl<T: ActorTypes + Clone> Creek<T> {
             self.actors.push(actor_handle.clone());
         }
         self.push_event(GlobalEventType::ActorAdded(actor_handle.id), None);
+        self.push_event(GlobalEventType::AddedToCreek, Some(actor_handle.id));
         ActorHandle { id: actor_handle.id, inner: actor_handle.inner.clone() }
     }
 
@@ -130,7 +134,7 @@ impl<T: ActorTypes + Clone> Creek<T> {
     pub fn propagate_events(&mut self) {
         let mut actions_pending = Vec::<CreekAction>::new();
         for handle in &self.actors {
-            if let Some(actor) = &*handle.inner.borrow() {
+            if let Some(actor) = &mut *handle.inner.borrow_mut() {
                 for event in &self.events {
                     if let Some(id) = event.target {
                         if handle.id != id {
@@ -143,7 +147,6 @@ impl<T: ActorTypes + Clone> Creek<T> {
                 }
             }
         }
-        println!("{:?}", actions_pending);
         for action in actions_pending {
             let actor_handle = self.get_actor_mut(action.target);
             if let Ok(handle) = actor_handle {

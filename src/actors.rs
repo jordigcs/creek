@@ -8,11 +8,11 @@ pub trait CreekEvent {}
 pub trait Actor {
     type Event;
     fn receive_event(&mut self, event:Self::Event);
-    fn recieve_global_event(&mut self, _event:GlobalEvent) {}
+    fn recieve_global_event(&mut self, _event:&GlobalEvent) {}
     fn added_to_creek(&mut self) {}
     fn removed_from_creek(&mut self) {}
     fn get_creek_actions(&self) -> &Vec<CreekAction>;
-    fn set_id(&mut self, _id:ActorID) -> Result<(), ()> {
+    fn set_id(&mut self, id:ActorID) -> Result<(), ()> {
         Err(())
     }
     fn get_id(&self) -> Option<ActorID>;
@@ -29,7 +29,7 @@ pub trait Actor {
 }
 
 pub trait ActorTypes {
-    fn propogate_global_event(&self, event:&GlobalEvent) -> Option<&Vec<CreekAction>>;
+    fn propogate_global_event(&mut self, event:&GlobalEvent) -> Option<&Vec<CreekAction>>;
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
